@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--surface:#ffffff;--surface2:#f9f8f5;
+  --border:#e2e0d8;--border2:#ccc9be;
+  --text:#1a1917;--text2:#6b6860;--text3:#9c9a94;
+  --green:#1a7a4a;--green-bg:#e4f5ec;--green-text:#1a7a4a;
+  --amber:#a05c00;--amber-bg:#fef3e2;--amber-text:#a05c00;
+  --red:#c0392b;--red-bg:#fdecea;--red-text:#c0392b;
+  --blue:#1a5fd4;--blue-bg:#e8eefa;--blue-text:#1a5fd4;
+  --gray-bg:#f0efe9;--gray-text:#5a5855;
+  --radius:8px;--radius-lg:12px;
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;line-height:1.5}
+
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.header-brand{display:flex;align-items:center;gap:9px}
+.header-icon{width:26px;height:26px;background:var(--text);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.header-icon svg{width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2}
+.header-title{font-weight:600;font-size:14px}
+.header-meta{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-left:6px}
+.header-right{display:flex;align-items:center;gap:10px}
+.mode-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px}
+.mode-btn{padding:3px 12px;border-radius:14px;border:none;cursor:pointer;font-size:11px;font-weight:500;font-family:'Noto Sans JP',sans-serif;transition:all .12s;background:transparent;color:var(--text2)}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.admin-badge{background:#fff3cd;border:1px solid #ffc107;color:#856404;font-size:11px;font-weight:500;padding:2px 8px;border-radius:10px;display:none}
+.admin-badge.on{display:inline}
+
+.main{max-width:1300px;margin:0 auto;padding:20px 16px}
+
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:760px){.summary-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.s-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;position:relative;overflow:hidden}
+.s-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0}
+.s-card.c-total::before{background:#c8c5bc}
+.s-card.c-pending::before{background:#888}
+.s-card.c-shortage::before{background:var(--amber)}
+.s-card.c-defect::before{background:var(--red)}
+.s-card.c-done::before{background:var(--green)}
+.s-label{font-size:10px;color:var(--text3);letter-spacing:.04em;margin-bottom:4px}
+.s-val{font-size:24px;font-weight:600;font-family:'IBM Plex Mono',monospace;line-height:1}
+.s-card.c-pending .s-val{color:var(--text2)}
+.s-card.c-shortage .s-val{color:var(--amber)}
+.s-card.c-defect .s-val{color:var(--red)}
+.s-card.c-done .s-val{color:var(--green)}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar-left{display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap}
+.section-title{font-size:14px;font-weight:600;white-space:nowrap}
+.filter-row{display:flex;gap:4px;flex-wrap:wrap}
+.filter-btn{padding:3px 11px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .1s;white-space:nowrap}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--text);color:#fff;border-color:var(--text)}
+.add-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--text);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap}
+.add-btn:hover{opacity:.85}
+.add-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.add-btn.hidden{display:none}
+
+.section-group{margin-bottom:22px}
+.group-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.group-name{font-size:13px;font-weight:600}
+.group-count{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
+
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:800px}
+th{padding:9px 11px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 11px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+tr.age-30 td{background:#fff0ee}
+tr.age-30:hover td{background:#fde8e5}
+tr.age-14 td{background:#fffbf0}
+tr.age-14:hover td{background:#fff5e0}
+
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-pending{background:var(--gray-bg);color:var(--gray-text)}.badge-pending::before{background:#999}
+.badge-shortage{background:var(--amber-bg);color:var(--amber-text)}.badge-shortage::before{background:var(--amber)}
+.badge-defect{background:var(--red-bg);color:var(--red-text)}.badge-defect::before{background:var(--red)}
+.badge-done{background:var(--green-bg);color:var(--green-text)}.badge-done::before{background:var(--green)}
+
+.age-pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:1px 6px;border-radius:6px;font-weight:500}
+.age-pill.d{background:var(--red-bg);color:var(--red-text)}
+.age-pill.w{background:var(--amber-bg);color:var(--amber-text)}
+.age-pill.n{background:var(--gray-bg);color:var(--gray-text)}
+
+.doc-name{font-weight:500;color:var(--text);font-size:12px}
+.doc-code{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+.doc-room{font-size:11px;color:var(--text2)}
+.doc-memo{font-size:11px;color:var(--text2);word-break:break-all}
+
+.status-select{appearance:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 22px 3px 7px;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;color:var(--text);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M1 1l3.5 3L8 1' stroke='%239c9a94' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
+.status-select:hover{border-color:var(--border2)}
+
+.empty-row td{text-align:center;color:var(--text3);padding:28px !important}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-start;justify-content:center;padding:50px 16px 16px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal h2{font-size:16px;font-weight:600;margin-bottom:18px}
+.form-grid{display:grid;gap:12px}
+.form-row{display:grid;gap:4px}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:11px;font-weight:500;color:var(--text2)}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface);outline:none;transition:border-color .12s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.btn-sec{padding:7px 16px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);font-size:12px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;color:var(--text2)}
+.btn-pri{padding:7px 16px;border:none;background:var(--text);color:#fff;border-radius:var(--radius);font-size:12px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.btn-pri:hover{opacity:.85}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<header class="header">
+  <div class="header-brand">
+    <div class="header-icon"><svg viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" rx="1.5"/><line x1="5.5" y1="6" x2="10.5" y2="6"/><line x1="5.5" y1="9" x2="10.5" y2="9"/></svg></div>
+    <span class="header-title">Document Tracker</span>
+    <span class="header-meta">2026/4/2 作成</span>
+  </div>
+  <div class="header-right">
+    <span class="admin-badge" id="adminBadge">管理者モード</span>
+    <div class="mode-toggle">
+      <button class="mode-btn" id="viewBtn" onclick="setMode('view')">閲覧</button>
+      <button class="mode-btn active" id="adminBtn" onclick="requestAdmin()">管理者</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="summary-grid">
+    <div class="s-card c-total"><div class="s-label">総件数</div><div class="s-val" id="cTotal">0</div></div>
+    <div class="s-card c-pending"><div class="s-label">未提出</div><div class="s-val" id="cPending">0</div></div>
+    <div class="s-card c-shortage"><div class="s-label">不足書類</div><div class="s-val" id="cShortage">0</div></div>
+    <div class="s-card c-defect"><div class="s-label">不備</div><div class="s-val" id="cDefect">0</div></div>
+    <div class="s-card c-done" id="cardDone"><div class="s-label">完了</div><div class="s-val" id="cDone">0</div></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#fde8e5;border:1px solid #f5b8b0"></div>30日以上経過</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff5e0;border:1px solid #fad99a"></div>14日以上経過</div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="section-title">一覧</span>
+      <div class="filter-row">
+        <span style="font-size:10px;color:var(--text3);letter-spacing:.04em;align-self:center">所属</span>
+        <button class="filter-btn" data-sec="TH新宿" onclick="toggleSec('TH新宿')">TH新宿</button>
+        <button class="filter-btn" data-sec="TH日本橋" onclick="toggleSec('TH日本橋')">TH日本橋</button>
+        <button class="filter-btn" data-sec="契約推進" onclick="toggleSec('契約推進')">契約推進</button>
+        <span style="font-size:10px;color:var(--text3);letter-spacing:.04em;align-self:center;margin-left:6px">ステータス</span>
+        <button class="filter-btn" data-st="pending" onclick="toggleSt('pending')">未提出</button>
+        <button class="filter-btn" data-st="shortage" onclick="toggleSt('shortage')">不足書類</button>
+        <button class="filter-btn" data-st="defect" onclick="toggleSt('defect')">不備</button>
+        <button class="filter-btn" id="filterDone" data-st="done" onclick="toggleSt('done')">完了</button>
+        <button class="filter-btn" id="filterReset" onclick="resetFilter()" style="margin-left:6px;color:var(--text3)">リセット</button>
+      </div>
+    </div>
+    <button class="add-btn hidden" id="resetBtn" onclick="resetStep()" style="background:var(--surface);color:var(--red);border:1px solid var(--red)"><svg viewBox="0 0 16 16" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2"><polyline points="2,4 4,4 14,4"/><path d="M5,4V3h6v1"/><path d="M6,7v5M10,7v5"/><rect x="3" y="4" width="10" height="9" rx="1"/></svg> <span id="resetLabel">データリセット</span></button>
+    <button class="add-btn hidden" id="allDoneBtn" onclick="confirmAllDone()" style="background:var(--green);border-color:var(--green)"><svg viewBox="0 0 16 16" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2"><polyline points="2,8 6,12 14,4"/></svg> すべて完了</button>
+    <button class="add-btn hidden" id="csvBtn" onclick="openCsvModal()" style="background:var(--surface);color:var(--text);border:1px solid var(--border2)"><svg viewBox="0 0 16 16" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5"><path d="M3 2h7l3 3v9H3z"/><polyline points="10,2 10,5 13,5"/><line x1="5.5" y1="8" x2="10.5" y2="8"/><line x1="5.5" y1="10.5" x2="10.5" y2="10.5"/></svg> CSVで追加</button>
+    <button class="add-btn hidden" id="addBtn" onclick="openModal()">
+      <svg viewBox="0 0 16 16"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+      書類を追加
+    </button>
+  </div>
+
+  <div id="tableContainer"></div>
+</main>
+
+<div class="modal-overlay" id="pwModalOverlay">
+  <div class="modal" style="max-width:360px">
+    <h2>管理者パスワード</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>パスワード</label>
+        <input type="password" id="pwInput" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')submitPw()">
+      </div>
+      <div id="pwError" style="display:none;font-size:12px;color:var(--red);padding:6px 10px;background:var(--red-bg);border-radius:var(--radius)">パスワードが違います</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closePwModal()">キャンセル</button>
+      <button class="btn-pri" onclick="submitPw()">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="csvModalOverlay">
+  <div class="modal" style="max-width:720px">
+    <h2>CSVファイルから追加</h2>
+    <div class="form-grid">
+
+      <div class="form-row"><label>備考あり行のステータス（備考ブランクは自動で「未提出」）</label>
+        <select id="csvStatus"><option value="pending">未提出</option><option value="shortage">不足書類</option><option value="defect">不備</option><option value="done">完了</option></select>
+      </div>
+      <div class="form-row"><label>CSVファイル *（文字コード：Shift-JIS）</label>
+        <input type="file" id="csvFile" accept=".csv" onchange="previewCsv()">
+      </div>
+      <div id="csvPreviewArea" style="display:none">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">プレビュー（先頭3件）</div>
+        <div id="csvPreviewTable" style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);font-size:11px"><table style="white-space:nowrap"></table></div>
+        <div id="csvCount" style="font-size:12px;color:var(--text2);margin-top:8px"></div>
+      </div>
+      <div id="csvError" style="display:none;font-size:12px;color:var(--red);padding:8px;background:var(--red-bg);border-radius:var(--radius)"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeCsvModal()">キャンセル</button>
+      <button class="btn-pri" id="csvImportBtn" onclick="importCsv()" disabled style="opacity:.5">取り込む</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>書類を追加</h2>
+    <div class="form-grid">
+      <div class="form-2col">
+        <div class="form-row"><label>所属 *</label>
+          <select id="iSection"><option>TH新宿</option><option>TH日本橋</option><option>契約推進</option></select>
+        </div>
+        <div class="form-row"><label>ステータス *</label>
+          <select id="iStatus"><option value="pending">未提出</option><option value="shortage">不足書類</option><option value="defect">不備</option><option value="done">完了</option></select>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>建物コード</label><input type="text" id="iCode" placeholder="例: 10826nr"></div>
+        <div class="form-row"><label>部屋名</label><input type="text" id="iRoom" placeholder="例: 201"></div>
+      </div>
+      <div class="form-row"><label>建物名 *</label><input type="text" id="iBuilding" placeholder="例: アヴニール大宮"></div>
+      <div class="form-row"><label>申込者</label><input type="text" id="iApplicant" placeholder="例: 山田 太郎 または ○○株式会社"></div>
+      <div class="form-row">
+        <label>担当者</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="iAssignee" style="flex:1" onchange="toggleNewAssignee()"></select>
+          <button type="button" id="newAssigneeToggle" onclick="toggleNewAssignee()" style="white-space:nowrap;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);font-size:11px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;color:var(--text2)">＋新規</button>
+        </div>
+        <input type="text" id="iAssigneeNew" placeholder="新しい担当者名を入力" style="display:none;margin-top:6px">
+      </div>
+      <div class="form-2col">
+        <div class="form-row"><label>契約開始日</label><input type="date" id="iStart" onchange="updateDaysPreview()"></div>
+        <div class="form-row"><label>経過日数（自動計算）</label><div id="daysPreview" style="padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text3)">契約開始日を選択してください</div></div>
+      </div>
+      <div class="form-row"><label>備考</label><textarea id="iMemo" placeholder="不足書類の内容など"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">キャンセル</button>
+      <button class="btn-pri" onclick="addDoc()">追加する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ahzhkdgdllevuqnnhnly.supabase.co';
+const SUPABASE_KEY='sb_publishable_24Y5NCR5vpB_vfD-7rSIJA_vjDhsEhR';
+let sb;
+const SECTIONS=['TH新宿','TH日本橋','契約推進'];
+const ASSIGNEE_SECTION={
+  '三上 理恵':'TH新宿','諸橋 奈津美':'TH新宿','廣瀬 航大':'TH新宿',
+  '小池 聡':'TH日本橋','関口 樹哉':'TH日本橋',
+  '小林 可奈':'契約推進','平田 美祝':'契約推進','上園 彩乃':'契約推進','渡部 郁':'契約推進',
+};
+function sectionByAssignee(name){return ASSIGNEE_SECTION[name]||null;}
+const STATUS={pending:'未提出',shortage:'不足書類',defect:'不備',done:'完了'};
+const BCLS={pending:'badge-pending',shortage:'badge-shortage',defect:'badge-defect',done:'badge-done'};
+
+const SAMPLE=[
+  {id:1,section:'TH新宿',status:'pending',code:'10826nr',building:'アヴニール大宮',room:'201',applicant:'日本たばこ産業㈱',assignee:'三上 理恵',startDate:'2026-03-22',days:11,memo:''},
+  {id:2,section:'TH新宿',status:'pending',code:'10710nr',building:'ヴァレ ブランシュ',room:'301',applicant:'日本ライフライン(株)',assignee:'諸橋 奈津美',startDate:'2026-03-25',days:8,memo:''},
+  {id:3,section:'TH新宿',status:'pending',code:'20135nr',building:'ハイタウン南馬込',room:'205',applicant:'東興ジオテック(株)',assignee:'廣瀬 航大',startDate:'2026-03-25',days:8,memo:''},
+  {id:4,section:'TH新宿',status:'pending',code:'10826nr',building:'アヴニール大宮',room:'101',applicant:'三菱電機ライフサービス(株)',assignee:'三上 理恵',startDate:'2026-03-28',days:5,memo:'三菱電機フィナンシャルソリューションズ(株)'},
+  {id:5,section:'TH新宿',status:'pending',code:'10828nr',building:'入間市扇町屋戸建',room:'1号棟',applicant:'(株)安川電機',assignee:'廣瀬 航大',startDate:'2026-03-28',days:5,memo:''},
+  {id:6,section:'TH新宿',status:'pending',code:'10163nr',building:'シェトワ中央',room:'103',applicant:'日本ハムカスタマー・コミュニケーション(株)',assignee:'諸橋 奈津美',startDate:'2026-03-29',days:4,memo:''},
+  {id:7,section:'TH新宿',status:'pending',code:'20471nr',building:'メローン',room:'202',applicant:'伊東 沙綾',assignee:'三上 理恵',startDate:'2026-03-31',days:2,memo:''},
+  {id:8,section:'TH新宿',status:'shortage',code:'20319nr',building:'Rassurer Chaton東川口',room:'202',applicant:'上坂 涼',assignee:'諸橋 奈津美',startDate:'2025-11-28',days:125,memo:'1/10 意向確認書、鍵受領書、覚書、ペット写真まち'},
+  {id:9,section:'TH新宿',status:'shortage',code:'10782nr',building:'アークヴェール自由が丘',room:'202',applicant:'殿岡 美玲愛',assignee:'三上 理恵',startDate:'2026-02-21',days:40,memo:'2/12 意向確認書、鍵受領書まち'},
+  {id:10,section:'TH新宿',status:'shortage',code:'10621nr',building:'エフ・コーポ',room:'101',applicant:'岩下 宗一郎',assignee:'諸橋 奈津美',startDate:'2026-03-07',days:26,memo:'3/2 住民票（セーフティー用）まち'},
+  {id:11,section:'TH新宿',status:'shortage',code:'10778nr',building:'チェルアムール',room:'205',applicant:'鳥飼 あかり',assignee:'諸橋 奈津美',startDate:'2026-03-07',days:26,memo:'3/10 意向確認書、鍵受領書まち'},
+  {id:12,section:'TH新宿',status:'shortage',code:'20315nr',building:'VOLD（フォルト）',room:'202',applicant:'大沼田 洵',assignee:'諸橋 奈津美',startDate:'2026-03-15',days:18,memo:'3/10 鍵受領書、火災保険証券、同居人身分証まち'},
+  {id:13,section:'TH新宿',status:'shortage',code:'10652nr',building:'ONNÉKAS',room:'203',applicant:'河合 ゆり',assignee:'諸橋 奈津美',startDate:'2026-03-22',days:11,memo:'3/19 意向確認書、鍵受領書まち'},
+  {id:14,section:'TH新宿',status:'shortage',code:'10383nr',building:'Bell Wood J Ⅱ',room:'205',applicant:'鈴木 貴大',assignee:'廣瀬 航大',startDate:'2026-03-26',days:7,memo:'3/26 意向確認書、鍵受領書まち'},
+  {id:15,section:'TH新宿',status:'shortage',code:'10556nr',building:'長崎清水レジデンス',room:'103',applicant:'乙坂 花咲',assignee:'廣瀬 航大',startDate:'2026-03-27',days:6,memo:'3/28 意向確認書、鍵受領書まち'},
+  {id:16,section:'TH新宿',status:'shortage',code:'10685nr',building:'パールラグーン',room:'201',applicant:'永井 凌允',assignee:'廣瀬 航大',startDate:'2026-03-28',days:5,memo:'3/20 鍵受領書まち'},
+  {id:17,section:'TH新宿',status:'shortage',code:'20455nr',building:'マロンハイツⅡ',room:'105',applicant:'塚本 朋希',assignee:'三上 理恵',startDate:'2026-03-30',days:3,memo:'3/30 意向確認書、鍵受領書まち'},
+  {id:18,section:'TH日本橋',status:'pending',code:'10215nr',building:'ラウンド・Ｍ',room:'103',applicant:'日本デコラックス(株)',assignee:'小池 聡',startDate:'2026-02-19',days:42,memo:''},
+  {id:19,section:'TH日本橋',status:'pending',code:'10363nr',building:'ウィステリア篠崎',room:'103',applicant:'イーグル工業(株)',assignee:'関口 樹哉',startDate:'2026-02-22',days:39,memo:''},
+  {id:20,section:'TH日本橋',status:'pending',code:'10827nr',building:'Renalle白金',room:'202',applicant:'伊豆田 隼平',assignee:'関口 樹哉',startDate:'2026-03-20',days:13,memo:''},
+  {id:21,section:'TH日本橋',status:'pending',code:'10261nr',building:'フラット梅島',room:'103',applicant:'(株)プレナス',assignee:'関口 樹哉',startDate:'2026-03-24',days:9,memo:''},
+  {id:22,section:'TH日本橋',status:'pending',code:'10827nr',building:'Renalle白金',room:'102',applicant:'中尾 吉宏',assignee:'関口 樹哉',startDate:'2026-03-27',days:6,memo:''},
+  {id:23,section:'TH日本橋',status:'pending',code:'20403nr',building:'City Creation茅場町',room:'402',applicant:'(株)ランテック',assignee:'小池 聡',startDate:'2026-03-28',days:5,memo:''},
+  {id:24,section:'TH日本橋',status:'pending',code:'10560nr',building:'ル アンビシャス',room:'105',applicant:'成田 瑛希',assignee:'小池 聡',startDate:'2026-03-30',days:3,memo:''},
+  {id:25,section:'TH日本橋',status:'pending',code:'10580nr',building:'Luna Stella Ⅰ・Ⅱ',room:'Ⅰ302',applicant:'橋ケ谷 涼介',assignee:'小池 聡',startDate:'2026-03-30',days:3,memo:''},
+  {id:26,section:'TH日本橋',status:'pending',code:'20250nr',building:'プリムローズ浦安',room:'302',applicant:'関澤 徹',assignee:'小池 聡',startDate:'2026-03-30',days:3,memo:''},
+  {id:27,section:'TH日本橋',status:'shortage',code:'10321nr',building:'Ｋハイム（東小岩）',room:'102',applicant:'福冨 剛志',assignee:'小池 聡',startDate:'2026-01-31',days:61,memo:'3/8 意向確認書まち'},
+  {id:28,section:'TH日本橋',status:'shortage',code:'10827nr',building:'Renalle白金',room:'401',applicant:'藤本 美紀',assignee:'関口 樹哉',startDate:'2026-03-19',days:14,memo:'3/22 意向確認書、鍵受領書まち'},
+  {id:29,section:'TH日本橋',status:'shortage',code:'10827nr',building:'Renalle白金',room:'501',applicant:'大口 昌芳',assignee:'関口 樹哉',startDate:'2026-03-20',days:13,memo:'3/26 意向確認書、鍵受領書まち'},
+  {id:30,section:'契約推進',status:'pending',code:'20467nr',building:'ブルーベリーの街のルレーヴ',room:'201',applicant:'(株)第一コーポレーション',assignee:'小林 可奈',startDate:'2026-03-15',days:18,memo:''},
+  {id:31,section:'契約推進',status:'pending',code:'10786nr',building:'サンアンドグリーンテラス',room:'502',applicant:'宮崎 嵐',assignee:'小林 可奈',startDate:'2026-03-17',days:16,memo:''},
+  {id:32,section:'契約推進',status:'pending',code:'10203nr',building:'モデラート',room:'104',applicant:'出口 紋',assignee:'平田 美祝',startDate:'2026-03-23',days:10,memo:''},
+  {id:33,section:'契約推進',status:'pending',code:'20081nr',building:'第二フラワーハイツ',room:'202',applicant:'(株)ｍｅｉｔｏ',assignee:'平田 美祝',startDate:'2026-03-26',days:7,memo:''},
+  {id:34,section:'契約推進',status:'pending',code:'10039nr',building:'リバティ・プレイス',room:'201',applicant:'アイザワ証券（株）',assignee:'小林 可奈',startDate:'2026-03-28',days:5,memo:''},
+  {id:35,section:'契約推進',status:'pending',code:'10644nr',building:'目白タウニー',room:'205',applicant:'共英製鋼(株)',assignee:'上園 彩乃',startDate:'2026-03-28',days:5,memo:''},
+  {id:36,section:'契約推進',status:'pending',code:'10662nr',building:'ハウスWagaya',room:'駐車場1',applicant:'前田 泰希',assignee:'平田 美祝',startDate:'2026-03-28',days:5,memo:''},
+  {id:37,section:'契約推進',status:'pending',code:'10810nr',building:'オーデル・北千住',room:'駐輪04',applicant:'皆川 遼太朗',assignee:'上園 彩乃',startDate:'2026-03-28',days:5,memo:''},
+  {id:38,section:'契約推進',status:'pending',code:'10488nr',building:'ハイムパイン',room:'301',applicant:'ゴ ガクジ',assignee:'平田 美祝',startDate:'2026-03-29',days:4,memo:''},
+  {id:39,section:'契約推進',status:'pending',code:'10252nr',building:'WING髙尾',room:'202',applicant:'（株）グローバルキッズ',assignee:'渡部 郁',startDate:'2026-03-30',days:3,memo:''},
+  {id:40,section:'契約推進',status:'pending',code:'10713nr',building:'エクセラン ヴォル',room:'駐車場3',applicant:'石丸 直幸',assignee:'平田 美祝',startDate:'2026-03-30',days:3,memo:''},
+  {id:41,section:'契約推進',status:'pending',code:'10829nr',building:'メゾン シェリール',room:'102',applicant:'明治安田生命保険(相)',assignee:'平田 美祝',startDate:'2026-03-30',days:3,memo:''},
+  {id:42,section:'契約推進',status:'pending',code:'10830nr',building:'シティパル富士本',room:'202',applicant:'日本下水道事業団',assignee:'平田 美祝',startDate:'2026-03-31',days:2,memo:''},
+  {id:43,section:'契約推進',status:'shortage',code:'10391nr',building:'アリビオ両国',room:'401',applicant:'富士フイルム(株)',assignee:'上園 彩乃',startDate:'2026-02-07',days:54,memo:'2/16 入居者情報、火災保険証券、安心サポート契約書まち'},
+  {id:44,section:'契約推進',status:'shortage',code:'10755nr',building:'FINO442',room:'203',applicant:'山下 琴音',assignee:'小林 可奈',startDate:'2026-02-15',days:46,memo:'2/13 意向確認書、鍵受領書まち'},
+  {id:45,section:'契約推進',status:'shortage',code:'10461nr',building:'トスカーナコート',room:'102',applicant:'（株）リロケーション・ジャパン',assignee:'小林 可奈',startDate:'2026-03-01',days:32,memo:'3/31 くらしーど申込書、鍵受領書まち'},
+  {id:46,section:'契約推進',status:'shortage',code:'20467nr',building:'ブルーベリーの街のルレーヴ',room:'101',applicant:'海野 音芽',assignee:'小林 可奈',startDate:'2026-03-01',days:32,memo:'3/23 住民票（セーフティー用）まち'},
+  {id:47,section:'契約推進',status:'shortage',code:'10623nr',building:'ベルハイツ',room:'102',applicant:'宮沢 風我',assignee:'平田 美祝',startDate:'2026-03-15',days:18,memo:'3/12 意向確認書、鍵受領書、住民票（セーフティー用）まち'},
+  {id:48,section:'契約推進',status:'shortage',code:'20102nr',building:'フローレンハイム',room:'302',applicant:'大澤 麻由子',assignee:'小林 可奈',startDate:'2026-03-20',days:13,memo:'3/15 鍵受領書まち'},
+  {id:49,section:'契約推進',status:'shortage',code:'20064nr',building:'ロイヤル白楽',room:'405',applicant:'田尻 英明',assignee:'小林 可奈',startDate:'2026-03-22',days:11,memo:'3/17 意向確認書、鍵受領書まち'},
+  {id:50,section:'契約推進',status:'shortage',code:'30009nr',building:'第２グリーンコーポラス',room:'402',applicant:'小久保 龍弥',assignee:'小林 可奈',startDate:'2026-03-24',days:9,memo:'3/21 意向確認書、鍵受領書まち'},
+  {id:51,section:'契約推進',status:'shortage',code:'10012nr',building:'コーポイースト',room:'205',applicant:'山崎 聖子',assignee:'平田 美祝',startDate:'2026-03-28',days:5,memo:'3/27 鍵受領書まち'},
+  {id:52,section:'契約推進',status:'shortage',code:'20095nr',building:'ウェルハイム氷川台',room:'203',applicant:'渡邉 羽瑠奈',assignee:'小林 可奈',startDate:'2026-03-28',days:5,memo:'3/24 鍵受領書、火災保険証券まち'},
+  {id:53,section:'契約推進',status:'shortage',code:'10417nr',building:'ルークラティブ蓮根',room:'201',applicant:'横山 健太',assignee:'小林 可奈',startDate:'2026-03-29',days:4,memo:'3/19 意向確認書、鍵受領書まち'},
+  {id:54,section:'契約推進',status:'shortage',code:'20072nr',building:'サンライズ豊島',room:'301',applicant:'チン カイジ',assignee:'小林 可奈',startDate:'2026-03-29',days:4,memo:'3/24 鍵受領書まち'},
+  {id:55,section:'契約推進',status:'shortage',code:'20200nr',building:'シャトルO',room:'101',applicant:'水落 貫太',assignee:'平田 美祝',startDate:'2026-03-29',days:4,memo:'3/24 鍵受領書まち'},
+  {id:56,section:'契約推進',status:'shortage',code:'10003nr',building:'ハミング寺尾台',room:'B201',applicant:'ギリ モハン',assignee:'小林 可奈',startDate:'2026-03-31',days:2,memo:'3/26 鍵受領書まち'},
+  {id:57,section:'契約推進',status:'shortage',code:'20072nr',building:'サンライズ豊島',room:'204',applicant:'清野 杏実',assignee:'小林 可奈',startDate:'2026-03-31',days:2,memo:'3/16 意向確認書、鍵受領書まち'},
+  {id:58,section:'契約推進',status:'shortage',code:'20298nr',building:'Noёl本郷',room:'502',applicant:'巾 裕美子',assignee:'平田 美祝',startDate:'2026-03-31',days:2,memo:'3/26 意向確認書、鍵受領書まち'},
+  {id:59,section:'契約推進',status:'shortage',code:'20466nr',building:'国立市西２丁目戸建て',room:'---',applicant:'小田 節子',assignee:'平田 美祝',startDate:'2026-03-31',days:2,memo:'3/26 意向確認書、鍵受領書まち'},
+];
+
+let docs=[],nextId=200,filterSecs=new Set(),filterSts=new Set(),isAdmin=true;
+const ASSIGNEES_KEY='doctrack_assignees';
+const DEFAULT_ASSIGNEES=['三上 理恵','諸橋 奈津美','廣瀬 航大','小池 聡','関口 樹哉','小林 可奈','平田 美祝','上園 彩乃','渡部 郁'];
+let assignees=[...DEFAULT_ASSIGNEES];
+
+function loadAssignees(){
+  try{const s=localStorage.getItem(ASSIGNEES_KEY);if(s)assignees=JSON.parse(s);}catch(e){}
+}
+function saveAssignees(){localStorage.setItem(ASSIGNEES_KEY,JSON.stringify(assignees));}
+
+function calcDays(startDate){
+  if(!startDate)return 0;
+  const today=new Date();today.setHours(0,0,0,0);
+  const start=new Date(startDate);start.setHours(0,0,0,0);
+  return Math.max(0,Math.round((today-start)/(1000*60*60*24)));
+}
+
+function dbRowToDoc(r){
+  return {id:r.id,section:r.section||'',status:r.status||'pending',code:r.code||'',building:r.building||'',room:r.room||'',applicant:r.applicant||'',assignee:r.assignee||'',startDate:r.start_date||'',days:0,memo:r.memo||'',source:r.source||''};
+}
+function docToRow(d){
+  return {section:d.section,status:d.status,code:d.code,building:d.building,room:d.room,applicant:d.applicant,assignee:d.assignee,start_date:d.startDate,memo:d.memo,source:d.source||''};
+}
+async function load(){
+  showLoading(true);
+  try{
+    const {data,error}=await sb.from('documents').select('*').order('id',{ascending:true});
+    if(error)throw error;
+    docs=data.map(dbRowToDoc);
+  }catch(e){
+    console.error('load error',e);docs=[];
+  }
+  showLoading(false);
+  render();
+}
+async function save(){
+  // no-op: individual operations call DB directly
+}
+function showLoading(on){
+  let el=document.getElementById('loadingBar');
+  if(!el){el=document.createElement('div');el.id='loadingBar';el.style.cssText='position:fixed;top:0;left:0;right:0;height:2px;background:var(--blue);z-index:999;transition:opacity .3s';document.body.appendChild(el);}
+  el.style.opacity=on?'1':'0';
+}
+
+const ADMIN_PW='tkskeiri';
+
+function requestAdmin(){
+  if(isAdmin)return;
+  document.getElementById('pwInput').value='';
+  document.getElementById('pwError').style.display='none';
+  document.getElementById('pwModalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('pwInput').focus(),50);
+}
+function closePwModal(){
+  document.getElementById('pwModalOverlay').classList.remove('open');
+  // revert button state to view
+  document.getElementById('adminBtn').classList.remove('active');
+  document.getElementById('viewBtn').classList.add('active');
+}
+function submitPw(){
+  const val=document.getElementById('pwInput').value;
+  if(val===ADMIN_PW){
+    document.getElementById('pwModalOverlay').classList.remove('open');
+    setMode('admin');
+  } else {
+    document.getElementById('pwError').style.display='block';
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').focus();
+  }
+}
+
+function setMode(m){
+  isAdmin=m==="admin";
+  document.getElementById("adminBtn").classList.toggle("active",isAdmin);
+  document.getElementById("viewBtn").classList.toggle("active",!isAdmin);
+  document.getElementById("adminBadge").classList.toggle("on",isAdmin);
+  document.getElementById("addBtn").classList.toggle("hidden",!isAdmin);
+  document.getElementById("csvBtn").classList.toggle("hidden",!isAdmin);
+  document.getElementById("allDoneBtn").classList.toggle("hidden",!isAdmin);
+  document.getElementById("resetBtn").classList.toggle("hidden",!isAdmin);
+  document.getElementById("cardDone").style.display=isAdmin?"block":"none";
+  document.getElementById("filterDone").style.display=isAdmin?"block":"none";
+  if(!isAdmin){filterSts.delete("done");}
+  render();
+}
+function toggleSec(sec){
+  if(filterSecs.has(sec))filterSecs.delete(sec);else filterSecs.add(sec);
+  updateFilterBtns();render();
+}
+function toggleSt(st){
+  if(filterSts.has(st))filterSts.delete(st);else filterSts.add(st);
+  updateFilterBtns();render();
+}
+function resetFilter(){
+  filterSecs.clear();filterSts.clear();updateFilterBtns();render();
+}
+function updateFilterBtns(){
+  document.querySelectorAll('.filter-btn[data-sec]').forEach(b=>b.classList.toggle('active',filterSecs.has(b.dataset.sec)));
+  document.querySelectorAll('.filter-btn[data-st]').forEach(b=>b.classList.toggle('active',filterSts.has(b.dataset.st)));
+  const any=filterSecs.size||filterSts.size;
+  document.getElementById('filterReset').classList.toggle('active',false);
+  document.getElementById('filterReset').style.opacity=any?'1':'0.4';
+}
+
+function getFiltered(){
+  let base=isAdmin?docs:docs.filter(d=>d.status!=="done");
+  if(filterSecs.size) base=base.filter(d=>filterSecs.has(d.section));
+  if(filterSts.size) base=base.filter(d=>filterSts.has(d.status));
+  return base;
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ageCls(d){return d>=30?'age-30':d>=14?'age-14':'';}
+function agePill(d){const c=d>=30?'d':d>=14?'w':'n';return `<span class="age-pill ${c}">${d}日</span>`;}
+
+let sortKey=null,sortDir=1;
+const STATUS_ORDER={pending:0,shortage:1,defect:2,done:3};
+function setSort(key){
+  if(sortKey===key){sortDir*=-1;}else{sortKey=key;sortDir=1;}
+  render();
+}
+function sortRows(rows){
+  if(!sortKey)return rows;
+  return [...rows].sort((a,b)=>{
+    let av=a[sortKey],bv=b[sortKey];
+    if(sortKey==='status'){av=STATUS_ORDER[av]??9;bv=STATUS_ORDER[bv]??9;return(av-bv)*sortDir;}
+    if(sortKey==='days'){return(Number(av)-Number(bv))*sortDir;}
+    av=String(av||'');bv=String(bv||'');return av.localeCompare(bv,'ja')*sortDir;
+  });
+}
+function thSort(label,key,width){
+  const active=sortKey===key;
+  const arrow=active?(sortDir===1?'↑':'↓'):'↕';
+  const bg=active?'background:var(--surface2);color:var(--text)':'';
+  return `<th style="width:${width};cursor:pointer;user-select:none;${bg}" onclick="setSort('${key}')">${label}&nbsp;<span style="font-size:9px;opacity:${active?1:0.4};color:${active?'var(--blue)':'inherit'}">${arrow}</span></th>`;
+}
+
+function updateSummary(){
+  const f=getFiltered();
+  document.getElementById('cTotal').textContent=f.length;
+  document.getElementById('cPending').textContent=f.filter(d=>d.status==='pending').length;
+  document.getElementById('cShortage').textContent=f.filter(d=>d.status==='shortage').length;
+  document.getElementById('cDefect').textContent=f.filter(d=>d.status==='defect').length;
+  document.getElementById('cDone').textContent=f.filter(d=>d.status==='done').length;
+}
+
+function render(){
+  updateSummary();
+  const filtered=getFiltered();
+  const grouped={};
+  SECTIONS.forEach(s=>{grouped[s]=[];});
+  filtered.forEach(d=>{if(grouped[d.section])grouped[d.section].push(d);});
+  let html='';
+  SECTIONS.forEach(sec=>{
+    const rows=grouped[sec];
+    if(!rows.length)return;
+    html+=`<div class="section-group"><div class="group-header"><span class="group-name">${esc(sec)}</span><span class="group-count">${rows.length}件</span></div>
+    <div class="table-wrap"><table><thead><tr>
+      ${thSort('建物コード','code','10%')}
+      ${thSort('建物名','building','20%')}
+      ${thSort('部屋','room','6%')}
+      ${thSort('申込者','applicant','17%')}
+      ${thSort('担当者','assignee','9%')}
+      ${thSort('契約開始日','startDate','9%')}
+      ${thSort('経過','days','7%')}
+      ${thSort('ステータス','status','8%')}
+      <th style="width:${isAdmin?'7%':'14%'}">${isAdmin?'操作':'備考'}</th>
+      ${isAdmin?'<th style="width:6%">備考</th>':''}
+      ${isAdmin?'<th style="width:8%">ソース</th>':''}
+    </tr></thead><tbody>`;
+    sortRows(rows).forEach(doc=>{
+      const days=calcDays(doc.startDate);const ac=ageCls(days);
+      const badge=`<span class="badge ${BCLS[doc.status]}">${esc(STATUS[doc.status])}</span>`;
+      const sel=isAdmin?`<select class="status-select" onchange="chgStatus(${doc.id},this.value)">${Object.entries(STATUS).map(([v,l])=>`<option value="${v}"${doc.status===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
+      html+=`<tr class="${ac}">
+        <td><span class="doc-code">${esc(doc.code)}</span></td>
+        <td><span class="doc-name">${esc(doc.building)}</span></td>
+        <td><span class="doc-room">${esc(doc.room)}</span></td>
+        <td>${esc(doc.applicant)}</td>
+        <td>${esc(doc.assignee)}</td>
+        <td><span class="doc-code">${esc(doc.startDate)}</span></td>
+        <td>${agePill(days)}</td>
+        <td>${badge}</td>
+        <td>${isAdmin?sel:'<span class="doc-memo">'+esc(doc.memo)+'</span>'}</td>
+        ${isAdmin?`<td><span class="doc-memo">${esc(doc.memo)}</span></td>`:''}
+        ${isAdmin?`<td><span class="doc-code" style="font-size:10px">${esc(doc.source||'手動')}</span></td>`:''}
+      </tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  if(!html)html=`<div class="table-wrap"><table><tbody><tr class="empty-row"><td colspan="10">該当する書類はありません</td></tr></tbody></table></div>`;
+  document.getElementById('tableContainer').innerHTML=html;
+}
+
+async function chgStatus(id,status){
+  const d=docs.find(x=>x.id===id);
+  if(!d)return;
+  d.status=status;render();
+  await sb.from('documents').update({status}).eq('id',id);
+}
+
+function buildAssigneeSelect(){
+  const sel=document.getElementById('iAssignee');
+  sel.innerHTML='<option value="">選択してください</option>'+assignees.map(a=>`<option value="${a}">${a}</option>`).join('')+'<option value="__new__">＋新しい担当者を登録</option>';
+}
+
+function toggleNewAssignee(){
+  const sel=document.getElementById('iAssignee');
+  const newField=document.getElementById('iAssigneeNew');
+  if(sel.value==='__new__'){
+    newField.style.display='block';
+    newField.focus();
+  }else{
+    newField.style.display='none';
+  }
+}
+
+function updateDaysPreview(){
+  const start=document.getElementById('iStart').value;
+  const preview=document.getElementById('daysPreview');
+  if(!start){preview.textContent='契約開始日を選択してください';preview.style.color='var(--text3)';return;}
+  const d=calcDays(start);
+  preview.textContent=d+'日経過';
+  preview.style.color=d>=30?'var(--red)':d>=14?'var(--amber)':'var(--text)';
+}
+
+function openModal(){
+  ['iCode','iRoom','iBuilding','iApplicant','iMemo'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('iAssigneeNew').value='';
+  document.getElementById('iAssigneeNew').style.display='none';
+  document.getElementById('iStart').value='';
+  document.getElementById('iStatus').value='pending';
+  document.getElementById('iSection').value='TH新宿';
+  document.getElementById('daysPreview').textContent='契約開始日を選択してください';
+  document.getElementById('daysPreview').style.color='var(--text3)';
+  buildAssigneeSelect();
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('iBuilding').focus(),50);
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+async function addDoc(){
+  const building=document.getElementById('iBuilding').value.trim();
+  if(!building){document.getElementById('iBuilding').focus();return;}
+  const selVal=document.getElementById('iAssignee').value;
+  let assignee='';
+  if(selVal==='__new__'){
+    assignee=document.getElementById('iAssigneeNew').value.trim();
+    if(assignee&&!assignees.includes(assignee)){assignees.push(assignee);saveAssignees();}
+  }else{
+    assignee=selVal;
+  }
+  const startDate=document.getElementById('iStart').value;
+  const newDoc={section:document.getElementById('iSection').value,status:document.getElementById('iStatus').value,code:document.getElementById('iCode').value.trim(),building,room:document.getElementById('iRoom').value.trim(),applicant:document.getElementById('iApplicant').value.trim(),assignee,startDate,memo:document.getElementById('iMemo').value.trim(),source:''};
+  closeModal();
+  const {data,error}=await sb.from('documents').insert([docToRow(newDoc)]).select();
+  if(!error&&data){docs.push(dbRowToDoc(data[0]));}
+  render();
+}
+
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('modalOverlay'))closeModal();});
+document.getElementById('csvModalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('csvModalOverlay'))closeCsvModal();});
+
+let csvParsed=[],csvFileName="";
+
+function openCsvModal(){
+  document.getElementById('csvFile').value='';
+  document.getElementById('csvPreviewArea').style.display='none';
+  document.getElementById('csvError').style.display='none';
+  document.getElementById('csvImportBtn').disabled=true;
+  document.getElementById('csvImportBtn').style.opacity='.5';
+  csvParsed=[];
+  document.getElementById('csvModalOverlay').classList.add('open');
+}
+function closeCsvModal(){document.getElementById('csvModalOverlay').classList.remove('open');}
+
+function parseCsvLine(line){
+  const result=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'&&!inQ){inQ=true;}
+    else if(c==='"'&&inQ&&line[i+1]==='"'){cur+='"';i++;}
+    else if(c==='"'&&inQ){inQ=false;}
+    else if(c===','&&!inQ){result.push(cur);cur='';}
+    else{cur+=c;}
+  }
+  result.push(cur);
+  return result;
+}
+
+function shiftJisDecode(buffer){
+  const dec=new TextDecoder('shift-jis');
+  return dec.decode(buffer);
+}
+
+function previewCsv(){
+  const file=document.getElementById('csvFile').files[0];
+  if(!file)return;
+  csvFileName=file.name;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const text=shiftJisDecode(e.target.result);
+      const lines=text.split(/\r?\n/).filter(l=>l.trim());
+      const headers=parseCsvLine(lines[0]);
+      const reqCols=['建物コード','建物名','部屋名','申込者','担当者','契約開始日'];
+      const missing=reqCols.filter(c=>!headers.includes(c));
+      if(missing.length){
+        showCsvError('必要な列が見つかりません: '+missing.join(', '));
+        return;
+      }
+      const idxOf=h=>headers.indexOf(h);
+      csvParsed=[];
+      for(let i=1;i<lines.length;i++){
+        const cols=parseCsvLine(lines[i]);
+        if(cols.length<3)continue;
+        const startDate=cols[idxOf('契約開始日')]||'';
+        const fmtDate=startDate.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/,(_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+        csvParsed.push({
+          code:(cols[idxOf('建物コード')]||'').trim(),
+          building:(cols[idxOf('建物名')]||'').trim(),
+          room:(cols[idxOf('部屋名')]||'').trim(),
+          applicant:(cols[idxOf('申込者')]||'').trim(),
+          assignee:(cols[idxOf('担当者')]||'').replace(/　/g,' ').trim(),
+          startDate:fmtDate.trim(),
+          memo:(idxOf('備考')>=0?cols[idxOf('備考')]||'':'').trim(),
+        });
+      }
+      document.getElementById('csvError').style.display='none';
+      document.getElementById('csvPreviewArea').style.display='block';
+      document.getElementById('csvCount').textContent=csvParsed.length+'件のデータを読み込みました';
+      const preview=csvParsed.slice(0,3);
+      const th='<th style="padding:5px 8px;text-align:left;font-size:10px;border-bottom:1px solid var(--border);white-space:nowrap">';
+      const td='<td style="padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap">';
+      const tdm='<td style="padding:5px 8px;border-bottom:1px solid var(--border);font-family:monospace;white-space:nowrap">';
+      document.getElementById('csvPreviewTable').innerHTML=
+        '<table style="width:100%;border-collapse:collapse">'+
+        '<tr style="background:var(--surface2)">'+th+'建物名</th>'+th+'部屋</th>'+th+'申込者</th>'+th+'担当者</th>'+th+'契約開始日</th></tr>'+
+        preview.map(r=>'<tr>'+td+esc(r.building)+'</td>'+td+esc(r.room)+'</td>'+td+esc(r.applicant)+'</td>'+td+esc(r.assignee)+'</td>'+tdm+esc(r.startDate)+'</td></tr>').join('')+
+        '</table>';
+      document.getElementById('csvImportBtn').disabled=false;
+      document.getElementById('csvImportBtn').style.opacity='1';
+    }catch(err){
+      showCsvError('ファイルの読み込みに失敗しました: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showCsvError(msg){
+  const el=document.getElementById('csvError');
+  el.textContent=msg;el.style.display='block';
+  document.getElementById('csvPreviewArea').style.display='none';
+  document.getElementById('csvImportBtn').disabled=true;
+  document.getElementById('csvImportBtn').style.opacity='.5';
+}
+
+let resetConfirming=false,resetTimer=null;
+function resetStep(){
+  if(!resetConfirming){
+    resetConfirming=true;
+    document.getElementById('resetLabel').textContent='本当に削除する';
+    document.getElementById('resetBtn').style.background='var(--red)';
+    document.getElementById('resetBtn').style.color='#fff';
+    resetTimer=setTimeout(()=>{
+      resetConfirming=false;
+      document.getElementById('resetLabel').textContent='データリセット';
+      document.getElementById('resetBtn').style.background='var(--surface)';
+      document.getElementById('resetBtn').style.color='var(--red)';
+    },3000);
+  } else {
+    clearTimeout(resetTimer);resetConfirming=false;
+    document.getElementById('resetLabel').textContent='データリセット';
+    document.getElementById('resetBtn').style.background='var(--surface)';
+    document.getElementById('resetBtn').style.color='var(--red)';
+    sb.from('documents').delete().neq('id',0).then(()=>{
+      docs=[];filterSecs.clear();filterSts.clear();updateFilterBtns();render();
+    });
+  }
+}
+
+async function confirmAllDone(){
+  const filtered=getFiltered();
+  const targets=filtered.filter(d=>d.status!=='done');
+  if(!targets.length)return;
+  const ids=targets.map(d=>d.id);
+  targets.forEach(d=>d.status='done');
+  render();
+  await sb.from('documents').update({status:'done'}).in('id',ids);
+}
+
+async function importCsv(){
+  if(!csvParsed.length)return;
+  const defaultStatus=document.getElementById('csvStatus').value;
+  const rows=[];
+  csvParsed.forEach(row=>{
+    if(!row.building)return;
+    const assignee=row.assignee;
+    if(assignee&&!assignees.includes(assignee)){assignees.push(assignee);saveAssignees();}
+    const status=row.memo?defaultStatus:'pending';
+    const section=sectionByAssignee(assignee)||'契約推進';
+    rows.push({section,status,code:row.code,building:row.building,room:row.room,applicant:row.applicant,assignee,start_date:row.startDate,memo:row.memo,source:csvFileName});
+  });
+  closeCsvModal();
+  if(rows.length){await sb.from('documents').insert(rows);}
+  await load();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+loadAssignees();
+sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+setMode('view');
+load();
+
+// Realtime subscription
+sb.channel('documents').on('postgres_changes',{event:'*',schema:'public',table:'documents'},()=>{load();}).subscribe();
+</script>
+</body>
+</html>
