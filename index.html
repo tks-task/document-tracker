@@ -129,7 +129,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="header-brand">
     <div class="header-icon"><svg viewBox="0 0 16 16"><rect x="3" y="2" width="10" height="12" rx="1.5"/><line x1="5.5" y1="6" x2="10.5" y2="6"/><line x1="5.5" y1="9" x2="10.5" y2="9"/></svg></div>
     <span class="header-title">Document Tracker</span>
-    <span class="header-meta">2026/4/2 作成</span>
+    <span class="header-meta" id="lastUpdated">—</span>
   </div>
   <div class="header-right">
     <span class="admin-badge" id="adminBadge">管理者モード</span>
@@ -383,6 +383,22 @@ function showLoading(on){
   el.style.opacity=on?'1':'0';
 }
 
+const UPDATED_KEY='doctrack_last_updated';
+function saveLastUpdated(){
+  const now=new Date();
+  const str=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  localStorage.setItem(UPDATED_KEY,str);
+  showLastUpdated(str);
+}
+function loadLastUpdated(){
+  const str=localStorage.getItem(UPDATED_KEY);
+  if(str)showLastUpdated(str);
+}
+function showLastUpdated(str){
+  const el=document.getElementById('lastUpdated');
+  if(el)el.textContent=str+' 更新';
+}
+
 const ADMIN_PW='tkskeiri';
 
 function requestAdmin(){
@@ -538,6 +554,7 @@ async function chgStatus(id,status){
   if(!d)return;
   d.status=status;render();
   await sb.from('documents').update({status}).eq('id',id);
+  saveLastUpdated();
 }
 
 function buildAssigneeSelect(){
@@ -594,7 +611,7 @@ async function addDoc(){
   const newDoc={section:document.getElementById('iSection').value,status:document.getElementById('iStatus').value,code:document.getElementById('iCode').value.trim(),building,room:document.getElementById('iRoom').value.trim(),applicant:document.getElementById('iApplicant').value.trim(),assignee,startDate,memo:document.getElementById('iMemo').value.trim(),source:''};
   closeModal();
   const {data,error}=await sb.from('documents').insert([docToRow(newDoc)]).select();
-  if(!error&&data){docs.push(dbRowToDoc(data[0]));}
+  if(!error&&data){docs.push(dbRowToDoc(data[0]));saveLastUpdated();}
   render();
 }
 
@@ -727,6 +744,7 @@ async function confirmAllDone(){
   targets.forEach(d=>d.status='done');
   render();
   await sb.from('documents').update({status:'done'}).in('id',ids);
+  saveLastUpdated();
 }
 
 async function importCsv(){
@@ -742,18 +760,34 @@ async function importCsv(){
     rows.push({section,status,code:row.code,building:row.building,room:row.room,applicant:row.applicant,assignee,start_date:row.startDate,memo:row.memo,source:csvFileName});
   });
   closeCsvModal();
-  if(rows.length){await sb.from('documents').insert(rows);}
+  if(rows.length){await sb.from('documents').insert(rows);saveLastUpdated();}
   await load();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 loadAssignees();
+loadLastUpdated();
 sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 setMode('view');
 load();
 
-// Realtime subscription
-sb.channel('documents').on('postgres_changes',{event:'*',schema:'public',table:'documents'},()=>{load();}).subscribe();
+let realtimeTimer=null;
+sb.channel('documents-changes').on('postgres_changes',{event:'*',schema:'public',table:'documents'},payload=>{
+  clearTimeout(realtimeTimer);
+  realtimeTimer=setTimeout(()=>{
+    const ev=payload.eventType;
+    if(ev==='INSERT'&&payload.new){
+      const exists=docs.find(d=>d.id===payload.new.id);
+      if(!exists)docs.push(dbRowToDoc(payload.new));
+    }else if(ev==='UPDATE'&&payload.new){
+      const idx=docs.findIndex(d=>d.id===payload.new.id);
+      if(idx>=0)docs[idx]=dbRowToDoc(payload.new);
+    }else if(ev==='DELETE'&&payload.old){
+      docs=docs.filter(d=>d.id!==payload.old.id);
+    }
+    render();
+  },300);
+}).subscribe();
 </script>
 </body>
 </html>
