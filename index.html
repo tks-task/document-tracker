@@ -79,27 +79,41 @@ th{padding:9px 11px;text-align:left;font-size:10px;font-weight:600;color:var(--t
 td{padding:10px 11px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--surface2)}
-tr.age-30 td{background:#fff0ee}
-tr.age-30:hover td{background:#fde8e5}
-tr.age-14 td{background:#fffbf0}
-tr.age-14:hover td{background:#fff5e0}
+tr.age-30 td{background:#fcd9d7}
+tr.age-30:hover td{background:#f9c5c2}
+tr.age-14 td{background:#fdefc8}
+tr.age-14:hover td{background:#fbe5a8}
 
 .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap}
 .badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
-.badge-pending{background:var(--gray-bg);color:var(--gray-text)}.badge-pending::before{background:#999}
-.badge-shortage{background:var(--amber-bg);color:var(--amber-text)}.badge-shortage::before{background:var(--amber)}
+.badge-pending{background:#e74c3c;color:#fff;font-weight:600}.badge-pending::before{background:#c0392b}
+.badge-shortage{background:#f39c12;color:#fff;font-weight:600}.badge-shortage::before{background:#c87f0a}
 .badge-defect{background:var(--red-bg);color:var(--red-text)}.badge-defect::before{background:var(--red)}
-.badge-done{background:var(--green-bg);color:var(--green-text)}.badge-done::before{background:var(--green)}
+.badge-done{background:#1a7a4a;color:#fff;font-weight:600}.badge-done::before{background:#0f5233}
 
 .age-pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:1px 6px;border-radius:6px;font-weight:500}
 .age-pill.d{background:var(--red-bg);color:var(--red-text)}
 .age-pill.w{background:var(--amber-bg);color:var(--amber-text)}
 .age-pill.n{background:var(--gray-bg);color:var(--gray-text)}
 
-.doc-name{font-weight:500;color:var(--text);font-size:12px}
-.doc-code{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
-.doc-room{font-size:11px;color:var(--text2)}
+.doc-name{font-weight:600;color:var(--text);font-size:13px;letter-spacing:-.01em}
+.doc-code{font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text2)}
+.doc-room{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
 .doc-memo{font-size:11px;color:var(--text2);word-break:break-all}
+.doc-assignee{font-size:12px;color:var(--blue);font-weight:500}
+.doc-applicant{font-size:12px;color:var(--text)}
+.doc-date{font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--text2)}
+.age-pill.d{background:#e74c3c;color:#fff;font-weight:700}
+.age-pill.w{background:#e67e22;color:#fff;font-weight:700}
+.age-pill.n{background:var(--gray-bg);color:var(--gray-text)}
+tr.age-30 .doc-name{color:var(--red)}
+tr.age-14 .doc-name{color:var(--amber)}
+
+
+/* 担当者フィルタープルダウン */
+.filter-select{padding:3px 8px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;height:26px}
+.filter-select:focus{outline:none;border-color:var(--border2)}
+.filter-select.active{background:var(--text);color:#fff;border-color:var(--text)}
 
 .status-select{appearance:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 22px 3px 7px;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;color:var(--text);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M1 1l3.5 3L8 1' stroke='%239c9a94' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
 .status-select:hover{border-color:var(--border2)}
@@ -165,6 +179,10 @@ textarea{resize:vertical;min-height:60px}
         <button class="filter-btn" data-st="pending" onclick="toggleSt('pending')">未提出</button>
         <button class="filter-btn" data-st="shortage" onclick="toggleSt('shortage')">不足書類</button>
         <button class="filter-btn" id="filterDone" data-st="done" onclick="toggleSt('done')">完了</button>
+        <span style="font-size:10px;color:var(--text3);letter-spacing:.04em;align-self:center;margin-left:6px">担当者</span>
+        <select class="filter-select" id="assigneeFilter" onchange="setAssigneeFilter(this.value)">
+          <option value="">すべて</option>
+        </select>
         <button class="filter-btn" id="filterReset" onclick="resetFilter()" style="margin-left:6px;color:var(--text3)">リセット</button>
       </div>
     </div>
@@ -335,7 +353,7 @@ const SAMPLE=[
   {id:59,section:'契約推進',status:'shortage',code:'20466nr',building:'国立市西２丁目戸建て',room:'---',applicant:'小田 節子',assignee:'平田 美祝',startDate:'2026-03-31',days:2,memo:'3/26 意向確認書、鍵受領書まち'},
 ];
 
-let docs=[],nextId=200,filterSecs=new Set(),filterSts=new Set(),isAdmin=true;
+let docs=[],nextId=200,filterSecs=new Set(),filterSts=new Set(),filterAssignee='',isAdmin=true;
 const ASSIGNEES_KEY='doctrack_assignees';
 const DEFAULT_ASSIGNEES=['三上 理恵','諸橋 奈津美','廣瀬 航大','小池 聡','関口 樹哉','小林 可奈','平田 美祝','上園 彩乃','渡部 郁'];
 let assignees=[...DEFAULT_ASSIGNEES];
@@ -444,8 +462,18 @@ function toggleSt(st){
   if(filterSts.has(st))filterSts.delete(st);else filterSts.add(st);
   updateFilterBtns();render();
 }
+function setAssigneeFilter(val){
+  filterAssignee=val;
+  const sel=document.getElementById('assigneeFilter');
+  if(sel)sel.classList.toggle('active',!!val);
+  render();
+}
 function resetFilter(){
-  filterSecs.clear();filterSts.clear();updateFilterBtns();render();
+  filterSecs.clear();filterSts.clear();filterAssignee='';
+  updateFilterBtns();
+  const sel=document.getElementById('assigneeFilter');
+  if(sel){sel.value='';sel.classList.remove('active');}
+  render();
 }
 function updateFilterBtns(){
   document.querySelectorAll('.filter-btn[data-sec]').forEach(b=>b.classList.toggle('active',filterSecs.has(b.dataset.sec)));
@@ -459,6 +487,7 @@ function getFiltered(){
   let base=isAdmin?docs:docs.filter(d=>d.status!=="done");
   if(filterSecs.size) base=base.filter(d=>filterSecs.has(d.section));
   if(filterSts.size) base=base.filter(d=>filterSts.has(d.status));
+  if(filterAssignee) base=base.filter(d=>d.assignee===filterAssignee);
   return base;
 }
 
@@ -496,7 +525,16 @@ function updateSummary(){
   document.getElementById('cDone').textContent=f.filter(d=>d.status==='done').length;
 }
 
+function updateAssigneeDropdown(){
+  const sel=document.getElementById('assigneeFilter');
+  if(!sel)return;
+  const current=sel.value;
+  const names=[...new Set(docs.map(d=>d.assignee).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+  sel.innerHTML='<option value="">すべて</option>'+names.map(n=>`<option value="${n}"${n===current?' selected':''}>${n}</option>`).join('');
+  sel.classList.toggle('active',!!current);
+}
 function render(){
+  updateAssigneeDropdown();
   updateSummary();
   const filtered=getFiltered();
   const grouped={};
@@ -508,17 +546,16 @@ function render(){
     if(!rows.length)return;
     html+=`<div class="section-group"><div class="group-header"><span class="group-name">${esc(sec)}</span><span class="group-count">${rows.length}件</span></div>
     <div class="table-wrap"><table><thead><tr>
-      ${thSort('建物コード','code','10%')}
-      ${thSort('建物名','building','20%')}
-      ${thSort('部屋','room','6%')}
-      ${thSort('申込者','applicant','17%')}
+      ${thSort('建物コード','code','9%')}
+      ${thSort('建物名・部屋','building','17%')}
+      ${thSort('申込者','applicant','14%')}
       ${thSort('担当者','assignee','9%')}
       ${thSort('契約開始日','startDate','9%')}
-      ${thSort('経過','days','7%')}
+      ${thSort('経過','days','6%')}
       ${thSort('ステータス','status','8%')}
-      <th style="width:${isAdmin?'7%':'14%'}">${isAdmin?'操作':'備考'}</th>
+      <th style="width:${isAdmin?'6%':'14%'}">${isAdmin?'操作':'備考'}</th>
       ${isAdmin?'<th style="width:6%">備考</th>':''}
-      ${isAdmin?'<th style="width:8%">ソース</th>':''}
+      ${isAdmin?'<th style="width:7%">ソース</th>':''}
     </tr></thead><tbody>`;
     sortRows(rows).forEach(doc=>{
       const days=calcDays(doc.startDate);const ac=ageCls(days);
@@ -526,11 +563,10 @@ function render(){
       const sel=isAdmin?`<select class="status-select" onchange="chgStatus(${doc.id},this.value)">${Object.entries(STATUS).map(([v,l])=>`<option value="${v}"${doc.status===v?' selected':''}>${l}</option>`).join('')}</select>`:'';
       html+=`<tr class="${ac}">
         <td><span class="doc-code">${esc(doc.code)}</span></td>
-        <td><span class="doc-name">${esc(doc.building)}</span></td>
-        <td><span class="doc-room">${esc(doc.room)}</span></td>
-        <td>${esc(doc.applicant)}</td>
-        <td>${esc(doc.assignee)}</td>
-        <td><span class="doc-code">${esc(doc.startDate)}</span></td>
+        <td><span class="doc-name">${esc(doc.building)}</span><br><span class="doc-room">${esc(doc.room)}</span></td>
+        <td><span class="doc-applicant">${esc(doc.applicant)}</span></td>
+        <td><span class="doc-assignee">${esc(doc.assignee)}</span></td>
+        <td><span class="doc-date">${esc(doc.startDate)}</span></td>
         <td>${agePill(days)}</td>
         <td>${badge}</td>
         <td>${isAdmin?sel:'<span class="doc-memo">'+esc(doc.memo)+'</span>'}</td>
