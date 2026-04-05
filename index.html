@@ -481,7 +481,7 @@ function sortRows(rows){
   return [...rows].sort((a,b)=>{
     let av=a[sortKey],bv=b[sortKey];
     if(sortKey==='status'){av=STATUS_ORDER[av]??9;bv=STATUS_ORDER[bv]??9;return(av-bv)*sortDir;}
-    if(sortKey==='days'){return(Number(av)-Number(bv))*sortDir;}
+    if(sortKey==='days'){return(calcDays(a.startDate)-calcDays(b.startDate))*sortDir;}
     av=String(av||'');bv=String(bv||'');return av.localeCompare(bv,'ja')*sortDir;
   });
 }
@@ -672,7 +672,12 @@ function previewCsv(){
         const cols=parseCsvLine(lines[i]);
         if(cols.length<3)continue;
         const startDate=cols[idxOf('契約開始日')]||'';
-        const fmtDate=startDate.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/,(_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0'));
+        const fmtDate=startDate.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/,(_,y,m,d)=>y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0')).trim();
+        if(!fmtDate)continue;
+        const dp=fmtDate.split('-');
+        const startMs=dp.length===3?new Date(+dp[0],+dp[1]-1,+dp[2]).getTime():NaN;
+        const t=new Date();const todayMs=new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime();
+        if(isNaN(startMs)||startMs>todayMs)continue;
         csvParsed.push({
           code:(cols[idxOf('建物コード')]||'').trim(),
           building:(cols[idxOf('建物名')]||'').trim(),
@@ -685,7 +690,9 @@ function previewCsv(){
       }
       document.getElementById('csvError').style.display='none';
       document.getElementById('csvPreviewArea').style.display='block';
-      document.getElementById('csvCount').textContent=csvParsed.length+'件のデータを読み込みました';
+      const totalRows=lines.length-1;
+      const skipped=totalRows-csvParsed.length;
+      document.getElementById('csvCount').textContent=csvParsed.length+'件を取り込みます'+(skipped>0?' （'+skipped+'件をスキップ：契約開始日がブランクまたは明日以降）':'');
       const preview=csvParsed.slice(0,3);
       const th='<th style="padding:5px 8px;text-align:left;font-size:10px;border-bottom:1px solid var(--border);white-space:nowrap">';
       const td='<td style="padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap">';
