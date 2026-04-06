@@ -198,6 +198,22 @@ textarea{resize:vertical;min-height:60px}
   <div id="tableContainer"></div>
 </main>
 
+<div class="modal-overlay open" id="viewPwModalOverlay" style="background:var(--bg);align-items:center">
+  <div class="modal" style="max-width:360px">
+    <h2>Document Tracker</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>アクセスパスワード</label>
+        <input type="password" id="viewPwInput" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')submitViewPw()">
+      </div>
+      <div id="viewPwError" style="display:none;font-size:12px;color:var(--red);padding:6px 10px;background:var(--red-bg);border-radius:var(--radius)">パスワードが違います</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-pri" onclick="submitViewPw()">ログイン</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="pwModalOverlay">
   <div class="modal" style="max-width:360px">
     <h2>管理者パスワード</h2>
@@ -414,6 +430,20 @@ function showLastUpdated(str){
 }
 
 const ADMIN_PW='tkskeiri';
+const VIEW_PW='t0wn';
+
+function submitViewPw(){
+  const val=document.getElementById('viewPwInput').value;
+  if(val===VIEW_PW||val===ADMIN_PW){
+    document.getElementById('viewPwModalOverlay').classList.remove('open');
+    if(val===ADMIN_PW)setMode('admin');
+    document.getElementById('viewPwInput').value='';
+  }else{
+    document.getElementById('viewPwError').style.display='block';
+    document.getElementById('viewPwInput').value='';
+    document.getElementById('viewPwInput').focus();
+  }
+}
 
 function requestAdmin(){
   if(isAdmin)return;
@@ -800,7 +830,7 @@ async function importCsv(){
   if(rows.length){await sb.from('documents').insert(rows);saveLastUpdated();}
   await load();
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('viewPwModalOverlay').classList.contains('open'))closeModal();});
 
 loadAssignees();
 loadLastUpdated();
