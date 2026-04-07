@@ -857,8 +857,8 @@ sb.channel('documents-changes').on('postgres_changes',{event:'*',schema:'public'
   },300);
 }).subscribe();
 
-sb.channel('settings-changes').on('postgres_changes',{event:'UPDATE',schema:'public',table:'settings',filter:'key=eq.last_updated'},payload=>{
-  if(payload.new&&payload.new.value)showLastUpdated(payload.new.value);
+sb.channel('settings-changes').on('postgres_changes',{event:'UPDATE',schema:'public',table:'settings'},payload=>{
+  if(payload.new&&payload.new.key==='last_updated'&&payload.new.value)showLastUpdated(payload.new.value);
 }).subscribe();
 </script>
 </body>
