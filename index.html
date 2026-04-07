@@ -413,16 +413,17 @@ function showLoading(on){
   el.style.opacity=on?'1':'0';
 }
 
-const UPDATED_KEY='doctrack_last_updated';
-function saveLastUpdated(){
+async function saveLastUpdated(){
   const now=new Date();
   const str=now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')+' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
-  localStorage.setItem(UPDATED_KEY,str);
   showLastUpdated(str);
+  await sb.from('settings').upsert({key:'last_updated',value:str});
 }
-function loadLastUpdated(){
-  const str=localStorage.getItem(UPDATED_KEY);
-  if(str)showLastUpdated(str);
+async function loadLastUpdated(){
+  try{
+    const {data}=await sb.from('settings').select('value').eq('key','last_updated').single();
+    if(data&&data.value)showLastUpdated(data.value);
+  }catch(e){}
 }
 function showLastUpdated(str){
   const el=document.getElementById('lastUpdated');
@@ -833,8 +834,8 @@ async function importCsv(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('viewPwModalOverlay').classList.contains('open'))closeModal();});
 
 loadAssignees();
-loadLastUpdated();
 sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+loadLastUpdated();
 setMode('view');
 load();
 
@@ -854,6 +855,10 @@ sb.channel('documents-changes').on('postgres_changes',{event:'*',schema:'public'
     }
     render();
   },300);
+}).subscribe();
+
+sb.channel('settings-changes').on('postgres_changes',{event:'UPDATE',schema:'public',table:'settings',filter:'key=eq.last_updated'},payload=>{
+  if(payload.new&&payload.new.value)showLastUpdated(payload.new.value);
 }).subscribe();
 </script>
 </body>
